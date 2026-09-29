@@ -1,5 +1,6 @@
 package com.example.training.task.dto;
 
+import com.example.training.task.Priority;
 import com.example.training.task.Task;
 import java.time.OffsetDateTime;
 
@@ -11,6 +12,7 @@ public record TaskResponse(
         String title,
         String description,
         boolean done,
+        Priority priority,
         OffsetDateTime createdAt
 ) {
 
@@ -20,6 +22,7 @@ public record TaskResponse(
                 task.getTitle(),
                 task.getDescription(),
                 task.isDone(),
+                task.getPriority(),
                 task.getCreatedAt()
         );
     }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createTask, deleteTask, fetchTasks, updateTask } from './api/tasks';
-import type { Task } from './api/types';
+import type { Priority, Task, TaskSort } from './api/types';
 import TaskForm from './components/TaskForm';
 import TaskItem from './components/TaskItem';
 
@@ -8,24 +8,25 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sort, setSort] = useState<TaskSort>('ID');
 
   const load = useCallback(async () => {
     try {
       setError(null);
-      setTasks(await fetchTasks());
+      setTasks(await fetchTasks(sort));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'タスクの取得に失敗しました');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sort]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const handleCreate = async (title: string, description: string) => {
-    await createTask({ title, description: description || null, done: false });
+  const handleCreate = async (title: string, description: string, priority: Priority) => {
+    await createTask({ title, description: description || null, done: false, priority });
     await load();
   };
 
@@ -34,6 +35,7 @@ export default function App() {
       title: task.title,
       description: task.description,
       done: !task.done,
+      priority: task.priority,
     });
     await load();
   };
@@ -53,6 +55,17 @@ export default function App() {
       </header>
 
       <TaskForm onSubmit={handleCreate} />
+
+      <div className="toolbar">
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as TaskSort)}
+          aria-label="並び順"
+        >
+          <option value="ID">登録順</option>
+          <option value="PRIORITY">優先度順</option>
+        </select>
+      </div>
 
       {error && <p className="error">{error}</p>}
       {loading ? (

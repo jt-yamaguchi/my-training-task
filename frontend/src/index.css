@@ -50,12 +50,14 @@ body {
 
 .task-form {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr auto auto;
   gap: 8px;
   margin-bottom: 28px;
 }
 
-.task-form input {
+.task-form input,
+.task-form select,
+.toolbar select {
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -63,7 +65,9 @@ body {
   font-size: 0.95rem;
 }
 
-.task-form input:focus {
+.task-form input:focus,
+.task-form select:focus,
+.toolbar select:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
@@ -81,6 +85,12 @@ body {
 .task-form button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
 }
 
 .task-list {
@@ -114,6 +124,29 @@ body {
   align-items: center;
   gap: 10px;
   cursor: pointer;
+}
+
+.task-priority {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.priority-high {
+  background: #fbeae7;
+  color: var(--danger);
+}
+
+.priority-medium {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.priority-low {
+  background: var(--paper);
+  color: var(--ink-soft);
 }
 
 .task-title {

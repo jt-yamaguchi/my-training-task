@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -70,6 +71,87 @@ class TaskApiTest {
     void 存在しないタスクは404になる() throws Exception {
         mockMvc.perform(get("/api/tasks/99999"))
                 .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void 優先度を指定して作成すると取得でも同じ値になる() throws Exception {
+        String body = mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"急ぎのタスク\", \"description\": null, \"done\": false, "
+                                + "\"priority\": \"HIGH\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.priority").value("HIGH"))
+                .andReturn().getResponse().getContentAsString();
+        Integer id = JsonPath.read(body, "$.id");
+
+        mockMvc.perform(get("/api/tasks/" + id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.priority").value("HIGH"));
+    }
+
+    @Test
+    void 優先度を指定しないと中になる() throws Exception {
+        mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"新しいタスク\", \"description\": null, \"done\": false}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.priority").value("MEDIUM"));
+    }
+
+    @Test
+    void 優先度が不正な値だと400になる() throws Exception {
+        mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"新しいタスク\", \"description\": null, \"done\": false, "
+                                + "\"priority\": \"URGENT\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void 既存タスクの優先度は中になっている() throws Exception {
+        mockMvc.perform(get("/api/tasks/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.priority").value("MEDIUM"));
+    }
+
+    @Test
+    void 優先度を更新できる() throws Exception {
+        mockMvc.perform(put("/api/tasks/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"更新後\", \"description\": null, \"done\": false, "
+                                + "\"priority\": \"LOW\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.priority").value("LOW"));
+    }
+
+    @Test
+    void 優先度順で一覧を取得できる() throws Exception {
+        mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"低いタスク\", \"description\": null, \"done\": false, "
+                                + "\"priority\": \"LOW\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"高いタスク\", \"description\": null, \"done\": false, "
+                                + "\"priority\": \"HIGH\"}"))
+                .andExpect(status().isCreated());
+
+        // 高 → 中(初期データ3件、ID昇順) → 低 の順になる
+        mockMvc.perform(get("/api/tasks").param("sort", "PRIORITY"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value("高いタスク"))
+                .andExpect(jsonPath("$[1].title").value("環境構築を完了する"))
+                .andExpect(jsonPath("$[3].title").value("最初の機能を追加する"))
+                .andExpect(jsonPath("$[4].title").value("低いタスク"));
+    }
+
+    @Test
+    void 並び順が不正な値だと400になる() throws Exception {
+        mockMvc.perform(get("/api/tasks").param("sort", "UNKNOWN"))
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists());
     }
 

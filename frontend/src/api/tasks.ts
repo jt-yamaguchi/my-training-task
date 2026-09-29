@@ -1,7 +1,7 @@
 // タスクAPIクライアント。
 // コンポーネントから直接 fetch せず、必ずこのモジュールを経由する。
 // URLは相対パス /api/... のみ(絶対URLの記述は禁止。CLAUDE.md参照)
-import type { Task, TaskRequest } from './types';
+import type { Task, TaskRequest, TaskSort } from './types';
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -14,8 +14,8 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
-export async function fetchTasks(): Promise<Task[]> {
-  const res = await fetch('/api/tasks');
+export async function fetchTasks(sort: TaskSort = 'ID'): Promise<Task[]> {
+  const res = await fetch(`/api/tasks?sort=${sort}`);
   return handleResponse<Task[]>(res);
 }
 

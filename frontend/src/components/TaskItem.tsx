@@ -1,4 +1,5 @@
 import type { Task } from '../api/types';
+import { PRIORITY_LABELS } from '../priority';
 
 type Props = {
   task: Task;
@@ -11,6 +12,9 @@ export default function TaskItem({ task, onToggle, onDelete }: Props) {
     <li className={task.done ? 'task-item done' : 'task-item'}>
       <label className="task-check">
         <input type="checkbox" checked={task.done} onChange={() => void onToggle(task)} />
+        <span className={`task-priority priority-${task.priority.toLowerCase()}`}>
+          {PRIORITY_LABELS[task.priority]}
+        </span>
         <span className="task-title">{task.title}</span>
       </label>
       {task.description && <p className="task-desc">{task.description}</p>}
