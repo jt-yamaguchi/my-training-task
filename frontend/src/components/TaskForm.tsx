@@ -3,13 +3,20 @@ import type { Priority } from '../api/types';
 import { PRIORITIES, PRIORITY_LABELS } from '../priority';
 
 type Props = {
-  onSubmit: (title: string, description: string, priority: Priority) => Promise<void>;
+  onSubmit: (
+    title: string,
+    description: string,
+    priority: Priority,
+    dueDate: string,
+  ) => Promise<void>;
 };
 
 export default function TaskForm({ onSubmit }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority>('MEDIUM');
+  // 期限は任意。未入力は空文字
+  const [dueDate, setDueDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,10 +26,11 @@ export default function TaskForm({ onSubmit }: Props) {
     }
     setSubmitting(true);
     try {
-      await onSubmit(title.trim(), description.trim(), priority);
+      await onSubmit(title.trim(), description.trim(), priority, dueDate);
       setTitle('');
       setDescription('');
       setPriority('MEDIUM');
+      setDueDate('');
     } finally {
       setSubmitting(false);
     }
@@ -57,6 +65,12 @@ export default function TaskForm({ onSubmit }: Props) {
           </option>
         ))}
       </select>
+      <input
+        type="date"
+        value={dueDate}
+        onChange={(e) => setDueDate(e.target.value)}
+        aria-label="期限"
+      />
       <button type="submit" disabled={!title.trim() || submitting}>
         追加する
       </button>

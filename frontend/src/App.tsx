@@ -25,8 +25,19 @@ export default function App() {
     void load();
   }, [load]);
 
-  const handleCreate = async (title: string, description: string, priority: Priority) => {
-    await createTask({ title, description: description || null, done: false, priority });
+  const handleCreate = async (
+    title: string,
+    description: string,
+    priority: Priority,
+    dueDate: string,
+  ) => {
+    await createTask({
+      title,
+      description: description || null,
+      done: false,
+      priority,
+      dueDate: dueDate || null,
+    });
     await load();
   };
 
@@ -36,6 +47,7 @@ export default function App() {
       description: task.description,
       done: !task.done,
       priority: task.priority,
+      dueDate: task.dueDate,
     });
     await load();
   };

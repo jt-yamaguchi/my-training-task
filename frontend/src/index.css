@@ -50,7 +50,7 @@ body {
 
 .task-form {
   display: grid;
-  grid-template-columns: 1fr 1fr auto auto;
+  grid-template-columns: 1fr 1fr auto auto auto;
   gap: 8px;
   margin-bottom: 28px;
 }
@@ -157,6 +157,32 @@ body {
   margin: 6px 0 0 26px;
   color: var(--ink-soft);
   font-size: 0.88rem;
+}
+
+.task-due {
+  margin: 6px 0 0 26px;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+/* 期限切れ(期限が今日より前かつ未完了)の強調表示 */
+.task-item.overdue {
+  border-color: var(--danger);
+  border-left-width: 4px;
+}
+
+.task-item.overdue .task-due {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.task-overdue-label {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #fbeae7;
+  color: var(--danger);
+  font-size: 0.75rem;
 }
 
 .task-delete {

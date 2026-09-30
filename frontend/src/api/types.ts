@@ -11,6 +11,10 @@ export type Task = {
   description: string | null;
   done: boolean;
   priority: Priority;
+  // 期限("yyyy-MM-dd")。null = 期限なし
+  dueDate: string | null;
+  // 期限切れ(期限が今日より前かつ未完了)。判定はAPI側で行う
+  overdue: boolean;
   createdAt: string;
 };
 
@@ -19,4 +23,5 @@ export type TaskRequest = {
   description: string | null;
   done: boolean;
   priority: Priority;
+  dueDate: string | null;
 };

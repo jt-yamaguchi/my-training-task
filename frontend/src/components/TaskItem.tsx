@@ -7,9 +7,22 @@ type Props = {
   onDelete: (id: number) => Promise<void>;
 };
 
+// "2026-10-15" → "2026/10/15"(Date に変換するとタイムゾーンで日付がずれるため文字列のまま扱う)
+function formatDueDate(dueDate: string): string {
+  return dueDate.split('-').join('/');
+}
+
 export default function TaskItem({ task, onToggle, onDelete }: Props) {
+  const classNames = ['task-item'];
+  if (task.done) {
+    classNames.push('done');
+  }
+  if (task.overdue) {
+    classNames.push('overdue');
+  }
+
   return (
-    <li className={task.done ? 'task-item done' : 'task-item'}>
+    <li className={classNames.join(' ')}>
       <label className="task-check">
         <input type="checkbox" checked={task.done} onChange={() => void onToggle(task)} />
         <span className={`task-priority priority-${task.priority.toLowerCase()}`}>
@@ -18,6 +31,12 @@ export default function TaskItem({ task, onToggle, onDelete }: Props) {
         <span className="task-title">{task.title}</span>
       </label>
       {task.description && <p className="task-desc">{task.description}</p>}
+      {task.dueDate && (
+        <p className="task-due">
+          期限: {formatDueDate(task.dueDate)}
+          {task.overdue && <span className="task-overdue-label">期限切れ</span>}
+        </p>
+      )}
       <button type="button" className="task-delete" onClick={() => void onDelete(task.id)}>
         削除
       </button>
