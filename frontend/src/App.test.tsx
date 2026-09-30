@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import type { Task } from './api/types';
 
@@ -13,6 +13,8 @@ const seedTasks: Task[] = [
     description: null,
     done: true,
     priority: 'HIGH',
+    dueDate: null,
+    overdue: false,
     createdAt: '2026-01-01T00:00:00+09:00',
   },
   {
@@ -21,6 +23,8 @@ const seedTasks: Task[] = [
     description: '開発ルールの理解',
     done: false,
     priority: 'LOW',
+    dueDate: null,
+    overdue: false,
     createdAt: '2026-01-01T00:00:00+09:00',
   },
 ];
@@ -54,6 +58,8 @@ describe('App', () => {
       description: null,
       done: false,
       priority: 'MEDIUM',
+      dueDate: null,
+      overdue: false,
       createdAt: '2026-01-02T00:00:00+09:00',
     };
     const fetchMock = vi
@@ -96,6 +102,8 @@ describe('App', () => {
       description: null,
       done: false,
       priority: 'HIGH',
+      dueDate: null,
+      overdue: false,
       createdAt: '2026-01-02T00:00:00+09:00',
     };
     const fetchMock = vi
@@ -175,5 +183,95 @@ describe('App', () => {
     render(<App />);
 
     expect(await screen.findByText('サーバーエラー')).toBeInTheDocument();
+  });
+});
+
+describe('期限', () => {
+  // テスト内の「今日」を 2026-10-15 に固定する(Date のみ偽装し、setTimeout 等は本物のまま)。
+  // 期限切れ判定はAPIが行うため、モックの overdue は「今日」を基準にAPIが返す値と一致させている
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-15T09:00:00+09:00'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const pastTask: Task = {
+    id: 11,
+    title: '昨日が期限のタスク',
+    description: null,
+    done: false,
+    priority: 'MEDIUM',
+    dueDate: '2026-10-14',
+    overdue: true,
+    createdAt: '2026-10-01T00:00:00+09:00',
+  };
+  const futureTask: Task = {
+    id: 12,
+    title: '明日が期限のタスク',
+    description: null,
+    done: false,
+    priority: 'MEDIUM',
+    dueDate: '2026-10-16',
+    overdue: false,
+    createdAt: '2026-10-01T00:00:00+09:00',
+  };
+
+  it('一覧に期限が表示される', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse([pastTask, futureTask, seedTasks[1]]),
+    );
+
+    render(<App />);
+    await screen.findByText('昨日が期限のタスク');
+
+    const items = screen.getAllByRole('listitem');
+    expect(within(items[0]).getByText(/期限: 2026\/10\/14/)).toBeInTheDocument();
+    expect(within(items[1]).getByText(/期限: 2026\/10\/16/)).toBeInTheDocument();
+    // 期限なしのタスクには期限を表示しない
+    expect(within(items[2]).queryByText(/期限:/)).not.toBeInTheDocument();
+  });
+
+  it('期限が過去日のタスクは強調表示され、未来日のタスクは強調表示されない', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse([pastTask, futureTask]));
+
+    render(<App />);
+    await screen.findByText('昨日が期限のタスク');
+
+    const [pastItem, futureItem] = screen.getAllByRole('listitem');
+    expect(pastItem).toHaveClass('overdue');
+    expect(within(pastItem).getByText('期限切れ')).toBeInTheDocument();
+    expect(futureItem).not.toHaveClass('overdue');
+    expect(within(futureItem).queryByText('期限切れ')).not.toBeInTheDocument();
+  });
+
+  it('追加フォームで期限を指定できる', async () => {
+    const created: Task = { ...futureTask, id: 13, title: '期限付きタスク' };
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse(seedTasks))
+      .mockResolvedValueOnce(jsonResponse(created, 201))
+      .mockResolvedValueOnce(jsonResponse([...seedTasks, created]));
+
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText('環境構築を完了する');
+
+    await user.type(screen.getByLabelText('タスク名'), '期限付きタスク');
+    await user.type(screen.getByLabelText('期限'), '2026-10-16');
+    await user.click(screen.getByRole('button', { name: '追加する' }));
+
+    expect(await screen.findByText('期限付きタスク')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/tasks',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"dueDate":"2026-10-16"'),
+        }),
+      );
+    });
   });
 });

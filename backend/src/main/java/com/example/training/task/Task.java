@@ -8,6 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 /**
@@ -35,6 +36,9 @@ public class Task {
     @Column(nullable = false, length = 10)
     private Priority priority;
 
+    @Column(name = "due_date")
+    private LocalDate dueDate;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -42,11 +46,12 @@ public class Task {
         // JPAが使用するデフォルトコンストラクタ
     }
 
-    public Task(String title, String description, Priority priority) {
+    public Task(String title, String description, Priority priority, LocalDate dueDate) {
         this.title = title;
         this.description = description;
         this.done = false;
         this.priority = priority;
+        this.dueDate = dueDate;
         this.createdAt = OffsetDateTime.now();
     }
 
@@ -70,14 +75,19 @@ public class Task {
         return priority;
     }
 
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
 
-    public void update(String title, String description, boolean done, Priority priority) {
+    public void update(String title, String description, boolean done, Priority priority, LocalDate dueDate) {
         this.title = title;
         this.description = description;
         this.done = done;
         this.priority = priority;
+        this.dueDate = dueDate;
     }
 }

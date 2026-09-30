@@ -1,5 +1,6 @@
 package com.example.training.task;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -8,10 +9,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -26,6 +33,20 @@ import org.springframework.transaction.annotation.Transactional;
 @ActiveProfiles("test")
 @Transactional
 class TaskApiTest {
+
+    /** テスト中の「今日」。期限切れ判定の結果がテスト実行日に左右されないよう固定する。 */
+    private static final LocalDate TODAY = LocalDate.of(2026, 10, 15);
+
+    @TestConfiguration
+    static class FixedClockConfig {
+
+        @Bean
+        @Primary
+        Clock fixedClock() {
+            ZoneId zone = ZoneId.of("Asia/Tokyo");
+            return Clock.fixed(TODAY.atStartOfDay(zone).toInstant(), zone);
+        }
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -153,6 +174,100 @@ class TaskApiTest {
         mockMvc.perform(get("/api/tasks").param("sort", "UNKNOWN"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void 期限を指定して作成すると取得でも同じ日付になる() throws Exception {
+        String body = mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"期限付きタスク\", \"description\": null, \"done\": false, "
+                                + "\"dueDate\": \"2026-10-31\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.dueDate").value("2026-10-31"))
+                .andReturn().getResponse().getContentAsString();
+        Integer id = JsonPath.read(body, "$.id");
+
+        mockMvc.perform(get("/api/tasks/" + id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dueDate").value("2026-10-31"));
+    }
+
+    @Test
+    void 期限なしでも作成できる() throws Exception {
+        String body = mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"期限なしタスク\", \"description\": null, \"done\": false}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.dueDate").value(nullValue()))
+                .andExpect(jsonPath("$.overdue").value(false))
+                .andReturn().getResponse().getContentAsString();
+        Integer id = JsonPath.read(body, "$.id");
+
+        mockMvc.perform(get("/api/tasks/" + id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dueDate").value(nullValue()));
+    }
+
+    @Test
+    void 期限をnullで更新すると期限が解除される() throws Exception {
+        mockMvc.perform(put("/api/tasks/2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"更新後\", \"description\": null, \"done\": false, "
+                                + "\"dueDate\": \"2026-10-31\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dueDate").value("2026-10-31"));
+
+        mockMvc.perform(put("/api/tasks/2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"更新後\", \"description\": null, \"done\": false, "
+                                + "\"dueDate\": null}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dueDate").value(nullValue()));
+    }
+
+    @Test
+    void 期限の形式が不正だと400になる() throws Exception {
+        mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"新しいタスク\", \"description\": null, \"done\": false, "
+                                + "\"dueDate\": \"2026/10/31\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void 期限が今日より前の未完了タスクは期限切れになる() throws Exception {
+        assertOverdue("2026-10-14", false, true);
+    }
+
+    @Test
+    void 期限が今日のタスクは期限切れにならない() throws Exception {
+        assertOverdue("2026-10-15", false, false);
+    }
+
+    @Test
+    void 期限が今日より後のタスクは期限切れにならない() throws Exception {
+        assertOverdue("2026-10-16", false, false);
+    }
+
+    @Test
+    void 期限が過ぎていても完了済みなら期限切れにならない() throws Exception {
+        assertOverdue("2026-10-14", true, false);
+    }
+
+    /** ID=2 のタスクを指定の期限・完了状態に更新し、一覧での overdue を検証する。 */
+    private void assertOverdue(String dueDate, boolean done, boolean expected) throws Exception {
+        mockMvc.perform(put("/api/tasks/2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"期限切れ判定\", \"description\": null, \"done\": " + done
+                                + ", \"dueDate\": \"" + dueDate + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.overdue").value(expected));
+
+        mockMvc.perform(get("/api/tasks"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[1].id").value(2))
+                .andExpect(jsonPath("$[1].overdue").value(expected));
     }
 
     @Test
