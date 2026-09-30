@@ -316,6 +316,104 @@ class TaskApiTest {
     }
 
     @Test
+    void カテゴリを指定して作成すると取得でも同じカテゴリになる() throws Exception {
+        String body = mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"仕事のタスク\", \"description\": null, \"done\": false, "
+                                + "\"categoryId\": 1}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.category.id").value(1))
+                .andExpect(jsonPath("$.category.name").value("仕事"))
+                .andReturn().getResponse().getContentAsString();
+        Integer id = JsonPath.read(body, "$.id");
+
+        mockMvc.perform(get("/api/tasks/" + id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.category.name").value("仕事"));
+    }
+
+    @Test
+    void カテゴリを指定しないとカテゴリなしになる() throws Exception {
+        mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"新しいタスク\", \"description\": null, \"done\": false}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.category").value(nullValue()));
+    }
+
+    @Test
+    void 存在しないカテゴリを指定すると400になる() throws Exception {
+        mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"新しいタスク\", \"description\": null, \"done\": false, "
+                                + "\"categoryId\": 99999}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void カテゴリをnullで更新するとカテゴリが解除される() throws Exception {
+        mockMvc.perform(put("/api/tasks/2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"更新後\", \"description\": null, \"done\": false, "
+                                + "\"categoryId\": 3}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.category.name").value("勉強"));
+
+        mockMvc.perform(put("/api/tasks/2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"更新後\", \"description\": null, \"done\": false, "
+                                + "\"categoryId\": null}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.category").value(nullValue()));
+    }
+
+    @Test
+    void カテゴリで一覧を絞り込める() throws Exception {
+        createTask("仕事のタスク", "MEDIUM", 1);
+        createTask("勉強のタスク", "MEDIUM", 3);
+
+        mockMvc.perform(get("/api/tasks").param("categoryId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].title").value("仕事のタスク"));
+
+        // 指定しなければすべて(初期データ3件 + 追加2件)
+        mockMvc.perform(get("/api/tasks"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(5));
+    }
+
+    @Test
+    void カテゴリの絞り込みと優先度順を併用できる() throws Exception {
+        createTask("仕事・低", "LOW", 1);
+        createTask("勉強・高", "HIGH", 3);
+        createTask("仕事・高", "HIGH", 1);
+
+        mockMvc.perform(get("/api/tasks").param("categoryId", "1").param("sort", "PRIORITY"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].title").value("仕事・高"))
+                .andExpect(jsonPath("$[1].title").value("仕事・低"));
+    }
+
+    @Test
+    void 存在しないカテゴリで絞り込むと空の一覧になる() throws Exception {
+        mockMvc.perform(get("/api/tasks").param("categoryId", "99999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    /** 指定の優先度・カテゴリでタスクを作成する。 */
+    private void createTask(String title, String priority, int categoryId) throws Exception {
+        mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"" + title + "\", \"description\": null, \"done\": false, "
+                                + "\"priority\": \"" + priority + "\", \"categoryId\": " + categoryId + "}"))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
     void タスクを削除できる() throws Exception {
         mockMvc.perform(delete("/api/tasks/1"))
                 .andExpect(status().isNoContent());

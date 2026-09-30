@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
-import type { Task } from './api/types';
+import type { Category, Task } from './api/types';
 
 // fetch をモックしてAPIなしでコンポーネントを検証する。
 // 新しい画面のテストはこのファイルの書き方を模倣すること。
@@ -15,6 +15,7 @@ const seedTasks: Task[] = [
     priority: 'HIGH',
     dueDate: null,
     overdue: false,
+    category: null,
     createdAt: '2026-01-01T00:00:00+09:00',
     completedAt: null,
   },
@@ -26,9 +27,16 @@ const seedTasks: Task[] = [
     priority: 'LOW',
     dueDate: null,
     overdue: false,
+    category: null,
     createdAt: '2026-01-01T00:00:00+09:00',
     completedAt: null,
   },
+];
+
+const seedCategories: Category[] = [
+  { id: 1, name: '仕事' },
+  { id: 2, name: '私用' },
+  { id: 3, name: '勉強' },
 ];
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -38,13 +46,28 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+// fetch をモックする。カテゴリ一覧の取得(GET /api/categories)には常に seedCategories を返し、
+// それ以外の呼び出しには responses を順に返す(使い切った後は最後の1つを繰り返す)。
+// Response の本文は1回しか読めないため、呼ばれるたびに新しい Response を作る関数で渡す
+function mockFetch(...responses: Array<() => Response>) {
+  let index = 0;
+  return vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+    if (input === '/api/categories' && init === undefined) {
+      return Promise.resolve(jsonResponse(seedCategories));
+    }
+    const response = responses[Math.min(index, responses.length - 1)];
+    index += 1;
+    return Promise.resolve(response());
+  });
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
 });
 
 describe('App', () => {
   it('タスク一覧が表示される', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(seedTasks));
+    mockFetch(() => jsonResponse(seedTasks));
 
     render(<App />);
 
@@ -62,14 +85,15 @@ describe('App', () => {
       priority: 'MEDIUM',
       dueDate: null,
       overdue: false,
+      category: null,
       createdAt: '2026-01-02T00:00:00+09:00',
       completedAt: null,
     };
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(jsonResponse(seedTasks))
-      .mockResolvedValueOnce(jsonResponse(created, 201))
-      .mockResolvedValueOnce(jsonResponse([...seedTasks, created]));
+    const fetchMock = mockFetch(
+      () => jsonResponse(seedTasks),
+      () => jsonResponse(created, 201),
+      () => jsonResponse([...seedTasks, created]),
+    );
 
     const user = userEvent.setup();
     render(<App />);
@@ -88,7 +112,7 @@ describe('App', () => {
   });
 
   it('一覧に優先度が表示される', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(seedTasks));
+    mockFetch(() => jsonResponse(seedTasks));
 
     render(<App />);
     await screen.findByText('環境構築を完了する');
@@ -107,14 +131,15 @@ describe('App', () => {
       priority: 'HIGH',
       dueDate: null,
       overdue: false,
+      category: null,
       createdAt: '2026-01-02T00:00:00+09:00',
       completedAt: null,
     };
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(jsonResponse(seedTasks))
-      .mockResolvedValueOnce(jsonResponse(created, 201))
-      .mockResolvedValueOnce(jsonResponse([...seedTasks, created]));
+    const fetchMock = mockFetch(
+      () => jsonResponse(seedTasks),
+      () => jsonResponse(created, 201),
+      () => jsonResponse([...seedTasks, created]),
+    );
 
     const user = userEvent.setup();
     render(<App />);
@@ -140,10 +165,7 @@ describe('App', () => {
   });
 
   it('並び順を優先度順にするとsort=PRIORITYで一覧を取得する', async () => {
-    // 一覧の再取得でも使うため、呼ばれるたびに新しい Response を返す
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockImplementation(() => Promise.resolve(jsonResponse(seedTasks)));
+    const fetchMock = mockFetch(() => jsonResponse(seedTasks));
 
     const user = userEvent.setup();
     render(<App />);
@@ -157,10 +179,7 @@ describe('App', () => {
   });
 
   it('完了を切り替えても優先度は維持される', async () => {
-    // 一覧の再取得でも使うため、呼ばれるたびに新しい Response を返す
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockImplementation(() => Promise.resolve(jsonResponse(seedTasks)));
+    const fetchMock = mockFetch(() => jsonResponse(seedTasks));
 
     const user = userEvent.setup();
     render(<App />);
@@ -180,9 +199,7 @@ describe('App', () => {
   });
 
   it('API失敗時にエラーメッセージが表示される', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      jsonResponse({ message: 'サーバーエラー' }, 500),
-    );
+    mockFetch(() => jsonResponse({ message: 'サーバーエラー' }, 500));
 
     render(<App />);
 
@@ -197,7 +214,7 @@ describe('完了日時', () => {
   };
 
   it('完了済みタスクには完了日時が表示され、未完了タスクには表示されない', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse([doneTask, seedTasks[1]]));
+    mockFetch(() => jsonResponse([doneTask, seedTasks[1]]));
 
     render(<App />);
     await screen.findByText('環境構築を完了する');
@@ -229,6 +246,7 @@ describe('期限', () => {
     priority: 'MEDIUM',
     dueDate: '2026-10-14',
     overdue: true,
+    category: null,
     createdAt: '2026-10-01T00:00:00+09:00',
     completedAt: null,
   };
@@ -240,14 +258,13 @@ describe('期限', () => {
     priority: 'MEDIUM',
     dueDate: '2026-10-16',
     overdue: false,
+    category: null,
     createdAt: '2026-10-01T00:00:00+09:00',
     completedAt: null,
   };
 
   it('一覧に期限が表示される', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      jsonResponse([pastTask, futureTask, seedTasks[1]]),
-    );
+    mockFetch(() => jsonResponse([pastTask, futureTask, seedTasks[1]]));
 
     render(<App />);
     await screen.findByText('昨日が期限のタスク');
@@ -260,7 +277,7 @@ describe('期限', () => {
   });
 
   it('期限が過去日のタスクは強調表示され、未来日のタスクは強調表示されない', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse([pastTask, futureTask]));
+    mockFetch(() => jsonResponse([pastTask, futureTask]));
 
     render(<App />);
     await screen.findByText('昨日が期限のタスク');
@@ -274,11 +291,11 @@ describe('期限', () => {
 
   it('追加フォームで期限を指定できる', async () => {
     const created: Task = { ...futureTask, id: 13, title: '期限付きタスク' };
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(jsonResponse(seedTasks))
-      .mockResolvedValueOnce(jsonResponse(created, 201))
-      .mockResolvedValueOnce(jsonResponse([...seedTasks, created]));
+    const fetchMock = mockFetch(
+      () => jsonResponse(seedTasks),
+      () => jsonResponse(created, 201),
+      () => jsonResponse([...seedTasks, created]),
+    );
 
     const user = userEvent.setup();
     render(<App />);
@@ -297,6 +314,259 @@ describe('期限', () => {
           body: expect.stringContaining('"dueDate":"2026-10-16"'),
         }),
       );
+    });
+  });
+});
+
+describe('カテゴリ', () => {
+  const workTask: Task = {
+    ...seedTasks[1],
+    id: 21,
+    title: '仕事のタスク',
+    category: { id: 1, name: '仕事' },
+  };
+
+  // カテゴリの追加・削除を再現するモック。追加・削除の結果がカテゴリ一覧の再取得に反映される
+  function mockCategoryApi(tasks: Task[]) {
+    let categories = [...seedCategories];
+    return vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = String(input);
+      if (url === '/api/categories' && init?.method === 'POST') {
+        const { name } = JSON.parse(String(init.body)) as { name: string };
+        if (categories.some((c) => c.name === name)) {
+          return Promise.resolve(
+            jsonResponse({ message: `同じ名前のカテゴリが既にあります: ${name}` }, 409),
+          );
+        }
+        const created: Category = { id: 4, name };
+        categories = [...categories, created];
+        return Promise.resolve(jsonResponse(created, 201));
+      }
+      if (url.startsWith('/api/categories/') && init?.method === 'DELETE') {
+        const id = Number(url.split('/').pop());
+        categories = categories.filter((c) => c.id !== id);
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+      if (url === '/api/categories') {
+        return Promise.resolve(jsonResponse(categories));
+      }
+      return Promise.resolve(jsonResponse(tasks));
+    });
+  }
+
+  // カテゴリ一覧の取得が終わるまで待つ
+  async function waitForCategories() {
+    await within(screen.getByLabelText('カテゴリで絞り込み')).findByRole('option', {
+      name: '仕事',
+    });
+  }
+
+  it('カテゴリ付きのタスクにはカテゴリ名が表示され、カテゴリなしのタスクには表示されない', async () => {
+    mockFetch(() => jsonResponse([workTask, seedTasks[0]]));
+
+    render(<App />);
+    const workItem = (await screen.findByText('仕事のタスク')).closest('li');
+    const noCategoryItem = screen.getByText('環境構築を完了する').closest('li');
+
+    expect(workItem).not.toBeNull();
+    expect(noCategoryItem).not.toBeNull();
+    expect(within(workItem as HTMLElement).getByText('仕事')).toBeInTheDocument();
+    expect(noCategoryItem).not.toHaveTextContent('仕事');
+  });
+
+  it('追加フォームでカテゴリを選択できる', async () => {
+    const created: Task = { ...workTask, id: 22 };
+    const fetchMock = mockFetch(
+      () => jsonResponse(seedTasks),
+      () => jsonResponse(created, 201),
+      () => jsonResponse([...seedTasks, created]),
+    );
+
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText('環境構築を完了する');
+    await waitForCategories();
+
+    // 初期値は「カテゴリなし」
+    expect(screen.getByLabelText('カテゴリ')).toHaveValue('');
+
+    await user.type(screen.getByLabelText('タスク名'), '仕事のタスク');
+    await user.selectOptions(screen.getByLabelText('カテゴリ'), '1');
+    await user.click(screen.getByRole('button', { name: '追加する' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/tasks',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"categoryId":1'),
+        }),
+      );
+    });
+  });
+
+  it('カテゴリを選ばずに追加するとカテゴリなしで登録される', async () => {
+    const created: Task = { ...seedTasks[1], id: 23, title: 'カテゴリなしのタスク' };
+    const fetchMock = mockFetch(
+      () => jsonResponse(seedTasks),
+      () => jsonResponse(created, 201),
+      () => jsonResponse([...seedTasks, created]),
+    );
+
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText('環境構築を完了する');
+
+    await user.type(screen.getByLabelText('タスク名'), 'カテゴリなしのタスク');
+    await user.click(screen.getByRole('button', { name: '追加する' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/tasks',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"categoryId":null'),
+        }),
+      );
+    });
+  });
+
+  it('絞り込みでカテゴリを選ぶとcategoryId付きで一覧を取得し、「すべて」に戻すと外れる', async () => {
+    const fetchMock = mockFetch(() => jsonResponse(seedTasks));
+
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText('環境構築を完了する');
+    await waitForCategories();
+
+    await user.selectOptions(screen.getByLabelText('カテゴリで絞り込み'), '1');
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/tasks?sort=ID&categoryId=1');
+    });
+
+    fetchMock.mockClear();
+    await user.selectOptions(screen.getByLabelText('カテゴリで絞り込み'), '');
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/tasks?sort=ID');
+    });
+  });
+
+  it('完了を切り替えてもカテゴリは維持される', async () => {
+    const fetchMock = mockFetch(() => jsonResponse([workTask]));
+
+    const user = userEvent.setup();
+    render(<App />);
+    const workItem = (await screen.findByText('仕事のタスク')).closest('li') as HTMLElement;
+
+    await user.click(within(workItem).getByRole('checkbox'));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/tasks/21',
+        expect.objectContaining({
+          method: 'PUT',
+          body: expect.stringContaining('"categoryId":1'),
+        }),
+      );
+    });
+  });
+
+  it('カテゴリを追加できる', async () => {
+    const fetchMock = mockCategoryApi(seedTasks);
+
+    const user = userEvent.setup();
+    render(<App />);
+    await waitForCategories();
+
+    await user.type(screen.getByLabelText('カテゴリ名'), '趣味');
+    await user.click(screen.getByRole('button', { name: 'カテゴリを追加' }));
+
+    expect(
+      await screen.findByRole('button', { name: 'カテゴリ「趣味」を削除' }),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/categories',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: '趣味' }) }),
+    );
+    expect(screen.getByLabelText('カテゴリ名')).toHaveValue('');
+  });
+
+  it('同じ名前のカテゴリを追加するとエラーメッセージが表示される', async () => {
+    mockCategoryApi(seedTasks);
+
+    const user = userEvent.setup();
+    render(<App />);
+    await waitForCategories();
+
+    await user.type(screen.getByLabelText('カテゴリ名'), '仕事');
+    await user.click(screen.getByRole('button', { name: 'カテゴリを追加' }));
+
+    expect(await screen.findByText('同じ名前のカテゴリが既にあります: 仕事')).toBeInTheDocument();
+    // 入力内容は残す(修正して再度追加できるように)
+    expect(screen.getByLabelText('カテゴリ名')).toHaveValue('仕事');
+  });
+
+  it('確認で了承するとカテゴリが削除される', async () => {
+    const confirmMock = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const fetchMock = mockCategoryApi(seedTasks);
+
+    const user = userEvent.setup();
+    render(<App />);
+    await waitForCategories();
+
+    await user.click(screen.getByRole('button', { name: 'カテゴリ「勉強」を削除' }));
+
+    // 使用中のタスクがカテゴリなしになることを確認で伝える
+    expect(confirmMock).toHaveBeenCalledWith(expect.stringContaining('カテゴリなし'));
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: 'カテゴリ「勉強」を削除' }),
+      ).not.toBeInTheDocument();
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/categories/3',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('確認でキャンセルするとカテゴリは削除されない', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const fetchMock = mockCategoryApi(seedTasks);
+
+    const user = userEvent.setup();
+    render(<App />);
+    await waitForCategories();
+
+    await user.click(screen.getByRole('button', { name: 'カテゴリ「勉強」を削除' }));
+
+    expect(screen.getByRole('button', { name: 'カテゴリ「勉強」を削除' })).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      '/api/categories/3',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('絞り込み中のカテゴリを削除すると「すべて」に戻る', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const fetchMock = mockCategoryApi(seedTasks);
+
+    const user = userEvent.setup();
+    render(<App />);
+    await waitForCategories();
+
+    await user.selectOptions(screen.getByLabelText('カテゴリで絞り込み'), '1');
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/tasks?sort=ID&categoryId=1');
+    });
+
+    fetchMock.mockClear();
+    await user.click(screen.getByRole('button', { name: 'カテゴリ「仕事」を削除' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('カテゴリで絞り込み')).toHaveValue('');
+    });
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/tasks?sort=ID');
     });
   });
 });
