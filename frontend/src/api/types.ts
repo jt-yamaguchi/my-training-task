@@ -16,6 +16,8 @@ export type Task = {
   // 期限切れ(期限が今日より前かつ未完了)。判定はAPI側で行う
   overdue: boolean;
   createdAt: string;
+  // 完了日時(ISO 8601、オフセット付き)。サーバー側でセットする。null = 未完了または完了日時不明
+  completedAt: string | null;
 };
 
 export type TaskRequest = {

@@ -6,6 +6,7 @@ import com.example.training.task.dto.TaskResponse;
 import com.example.training.task.dto.TaskSort;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -58,7 +59,7 @@ public class TaskService {
     public TaskResponse update(Long id, TaskRequest request) {
         Task task = getTask(id);
         task.update(request.title(), request.description(), request.done(), request.priorityOrDefault(),
-                request.dueDate());
+                request.dueDate(), OffsetDateTime.now(clock));
         return toResponse(task);
     }
 

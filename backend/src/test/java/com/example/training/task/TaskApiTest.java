@@ -1,5 +1,6 @@
 package com.example.training.task;
 
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -268,6 +269,50 @@ class TaskApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[1].id").value(2))
                 .andExpect(jsonPath("$[1].overdue").value(expected));
+    }
+
+    @Test
+    void 作成直後のタスクは完了日時がnullになる() throws Exception {
+        mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"新しいタスク\", \"description\": null, \"done\": false}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.completedAt").value(nullValue()));
+    }
+
+    @Test
+    void 完了にすると完了日時が入る() throws Exception {
+        // ID=2 は未完了の初期データ
+        mockMvc.perform(put("/api/tasks/2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"完了にする\", \"description\": null, \"done\": true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.done").value(true))
+                .andExpect(jsonPath("$.completedAt").value(notNullValue()));
+
+        mockMvc.perform(get("/api/tasks/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.completedAt").value(notNullValue()));
+    }
+
+    @Test
+    void 完了を取り消すと完了日時がnullに戻る() throws Exception {
+        mockMvc.perform(put("/api/tasks/2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"完了を取り消す\", \"description\": null, \"done\": true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.completedAt").value(notNullValue()));
+
+        mockMvc.perform(put("/api/tasks/2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": \"完了を取り消す\", \"description\": null, \"done\": false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.done").value(false))
+                .andExpect(jsonPath("$.completedAt").value(nullValue()));
+
+        mockMvc.perform(get("/api/tasks/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.completedAt").value(nullValue()));
     }
 
     @Test
