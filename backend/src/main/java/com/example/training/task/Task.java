@@ -42,6 +42,9 @@ public class Task {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
+    @Column(name = "completed_at")
+    private OffsetDateTime completedAt;
+
     protected Task() {
         // JPAが使用するデフォルトコンストラクタ
     }
@@ -83,7 +86,22 @@ public class Task {
         return createdAt;
     }
 
-    public void update(String title, String description, boolean done, Priority priority, LocalDate dueDate) {
+    public OffsetDateTime getCompletedAt() {
+        return completedAt;
+    }
+
+    /**
+     * タスクを更新する。
+     * 完了日時は完了状態が変わったときだけ更新する(未完了→完了で now をセット、完了→未完了で null に戻す)。
+     * 完了状態が変わらない編集では完了日時を維持する。
+     */
+    public void update(String title, String description, boolean done, Priority priority, LocalDate dueDate,
+            OffsetDateTime now) {
+        if (!this.done && done) {
+            this.completedAt = now;
+        } else if (this.done && !done) {
+            this.completedAt = null;
+        }
         this.title = title;
         this.description = description;
         this.done = done;

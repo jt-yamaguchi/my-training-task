@@ -165,6 +165,13 @@ body {
   font-size: 0.85rem;
 }
 
+/* 完了日時(完了済みタスクのみ表示) */
+.task-completed {
+  margin: 6px 0 0 26px;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
 /* 期限切れ(期限が今日より前かつ未完了)の強調表示 */
 .task-item.overdue {
   border-color: var(--danger);

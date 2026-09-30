@@ -16,6 +16,7 @@ const seedTasks: Task[] = [
     dueDate: null,
     overdue: false,
     createdAt: '2026-01-01T00:00:00+09:00',
+    completedAt: null,
   },
   {
     id: 2,
@@ -26,6 +27,7 @@ const seedTasks: Task[] = [
     dueDate: null,
     overdue: false,
     createdAt: '2026-01-01T00:00:00+09:00',
+    completedAt: null,
   },
 ];
 
@@ -61,6 +63,7 @@ describe('App', () => {
       dueDate: null,
       overdue: false,
       createdAt: '2026-01-02T00:00:00+09:00',
+      completedAt: null,
     };
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
@@ -105,6 +108,7 @@ describe('App', () => {
       dueDate: null,
       overdue: false,
       createdAt: '2026-01-02T00:00:00+09:00',
+      completedAt: null,
     };
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
@@ -186,6 +190,25 @@ describe('App', () => {
   });
 });
 
+describe('完了日時', () => {
+  const doneTask: Task = {
+    ...seedTasks[0],
+    completedAt: '2026-09-30T14:05:00+09:00',
+  };
+
+  it('完了済みタスクには完了日時が表示され、未完了タスクには表示されない', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse([doneTask, seedTasks[1]]));
+
+    render(<App />);
+    await screen.findByText('環境構築を完了する');
+
+    // 表示形式はタイムゾーンに依存するため、日時の値ではなく表示の有無で検証する
+    const [doneItem, notDoneItem] = screen.getAllByRole('listitem');
+    expect(within(doneItem).getByText(/完了:/)).toBeInTheDocument();
+    expect(within(notDoneItem).queryByText(/完了:/)).not.toBeInTheDocument();
+  });
+});
+
 describe('期限', () => {
   // テスト内の「今日」を 2026-10-15 に固定する(Date のみ偽装し、setTimeout 等は本物のまま)。
   // 期限切れ判定はAPIが行うため、モックの overdue は「今日」を基準にAPIが返す値と一致させている
@@ -207,6 +230,7 @@ describe('期限', () => {
     dueDate: '2026-10-14',
     overdue: true,
     createdAt: '2026-10-01T00:00:00+09:00',
+    completedAt: null,
   };
   const futureTask: Task = {
     id: 12,
@@ -217,6 +241,7 @@ describe('期限', () => {
     dueDate: '2026-10-16',
     overdue: false,
     createdAt: '2026-10-01T00:00:00+09:00',
+    completedAt: null,
   };
 
   it('一覧に期限が表示される', async () => {
