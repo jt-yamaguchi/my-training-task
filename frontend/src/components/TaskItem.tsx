@@ -36,6 +36,7 @@ export default function TaskItem({ task, onToggle, onDelete }: Props) {
           {PRIORITY_LABELS[task.priority]}
         </span>
         <span className="task-title">{task.title}</span>
+        {task.category && <span className="task-category">{task.category.name}</span>}
       </label>
       {task.description && <p className="task-desc">{task.description}</p>}
       {task.dueDate && (

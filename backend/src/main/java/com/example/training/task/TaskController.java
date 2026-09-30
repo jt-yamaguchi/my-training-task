@@ -31,8 +31,9 @@ public class TaskController {
     }
 
     @GetMapping
-    public List<TaskResponse> list(@RequestParam(defaultValue = "ID") TaskSort sort) {
-        return taskService.findAll(sort);
+    public List<TaskResponse> list(@RequestParam(defaultValue = "ID") TaskSort sort,
+            @RequestParam(required = false) Long categoryId) {
+        return taskService.findAll(sort, categoryId);
     }
 
     @GetMapping("/{id}")

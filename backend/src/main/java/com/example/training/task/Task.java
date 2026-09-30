@@ -1,12 +1,16 @@
 package com.example.training.task;
 
+import com.example.training.category.Category;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -39,6 +43,11 @@ public class Task {
     @Column(name = "due_date")
     private LocalDate dueDate;
 
+    /** カテゴリ(任意)。null はカテゴリなし。 */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private Category category;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -49,12 +58,13 @@ public class Task {
         // JPAが使用するデフォルトコンストラクタ
     }
 
-    public Task(String title, String description, Priority priority, LocalDate dueDate) {
+    public Task(String title, String description, Priority priority, LocalDate dueDate, Category category) {
         this.title = title;
         this.description = description;
         this.done = false;
         this.priority = priority;
         this.dueDate = dueDate;
+        this.category = category;
         this.createdAt = OffsetDateTime.now();
     }
 
@@ -82,6 +92,10 @@ public class Task {
         return dueDate;
     }
 
+    public Category getCategory() {
+        return category;
+    }
+
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
@@ -96,7 +110,7 @@ public class Task {
      * 完了状態が変わらない編集では完了日時を維持する。
      */
     public void update(String title, String description, boolean done, Priority priority, LocalDate dueDate,
-            OffsetDateTime now) {
+            Category category, OffsetDateTime now) {
         if (!this.done && done) {
             this.completedAt = now;
         } else if (this.done && !done) {
@@ -107,5 +121,6 @@ public class Task {
         this.done = done;
         this.priority = priority;
         this.dueDate = dueDate;
+        this.category = category;
     }
 }
