@@ -2,6 +2,8 @@ package com.example.training.task;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -29,6 +31,10 @@ public class Task {
     @Column(nullable = false)
     private boolean done;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private Priority priority;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -36,10 +42,11 @@ public class Task {
         // JPAが使用するデフォルトコンストラクタ
     }
 
-    public Task(String title, String description) {
+    public Task(String title, String description, Priority priority) {
         this.title = title;
         this.description = description;
         this.done = false;
+        this.priority = priority;
         this.createdAt = OffsetDateTime.now();
     }
 
@@ -59,13 +66,18 @@ public class Task {
         return done;
     }
 
+    public Priority getPriority() {
+        return priority;
+    }
+
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
 
-    public void update(String title, String description, boolean done) {
+    public void update(String title, String description, boolean done, Priority priority) {
         this.title = title;
         this.description = description;
         this.done = done;
+        this.priority = priority;
     }
 }

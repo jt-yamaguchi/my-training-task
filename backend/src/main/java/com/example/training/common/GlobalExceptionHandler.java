@@ -2,10 +2,12 @@ package com.example.training.common;
 
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
  * APIのエラーレスポンスを {"message": "..."} の形式に統一する。
@@ -29,5 +31,19 @@ public class GlobalExceptionHandler {
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .collect(Collectors.joining(", "));
         return new ErrorResponse(message);
+    }
+
+    /** JSONとして読めない・enumに無い値(例: priority に "URGENT")などリクエスト本文が不正な場合。 */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleNotReadable(HttpMessageNotReadableException e) {
+        return new ErrorResponse("リクエストの形式が不正です");
+    }
+
+    /** クエリパラメータ等の値が型に合わない場合(例: sort に未定義の値)。 */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        return new ErrorResponse(e.getName() + ": 値が不正です(" + e.getValue() + ")");
     }
 }

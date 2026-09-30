@@ -13,6 +13,6 @@
 ## 読むときのポイント(コードとの対応)
 
 - 基本設計のAPI一覧 ⇔ `TaskController` / Swagger UI(/api/docs)
-- 基本設計のER図 ⇔ `db/migration/V1__create_tasks.sql`
+- 基本設計のER図 ⇔ `db/migration/V1__create_tasks.sql`、`V3__add_priority_to_tasks.sql`(優先度追加)
 - 要件のバリデーション ⇔ `TaskRequest` と `TaskApiTest`(400のテスト)
 - 受入基準 ⇔ `TaskApiTest` / `App.test.tsx` のテストケース
