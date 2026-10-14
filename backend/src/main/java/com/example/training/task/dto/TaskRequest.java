@@ -11,6 +11,7 @@ import java.time.LocalDate;
  * priority は未指定(null)の場合「中」として扱う。
  * dueDate は任意(null = 期限なし)。更新時に null を送ると期限を解除する。
  * 期限切れのタスクも編集できるよう、過去日も受け付ける。
+ * categoryId は任意(null = カテゴリなし)。更新時に null を送るとカテゴリを解除する。
  */
 public record TaskRequest(
         @NotBlank(message = "タイトルは必須です")
@@ -24,7 +25,9 @@ public record TaskRequest(
 
         Priority priority,
 
-        LocalDate dueDate
+        LocalDate dueDate,
+
+        Long categoryId
 ) {
 
     /** 未指定の場合は「中」を返す。 */

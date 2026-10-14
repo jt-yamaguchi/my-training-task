@@ -1,21 +1,16 @@
 // タスクAPIクライアント。
 // コンポーネントから直接 fetch せず、必ずこのモジュールを経由する。
 // URLは相対パス /api/... のみ(絶対URLの記述は禁止。CLAUDE.md参照)
+import { handleResponse } from './http';
 import type { Task, TaskRequest, TaskSort } from './types';
 
-async function handleResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(body?.message ?? `APIエラー (HTTP ${res.status})`);
-  }
-  if (res.status === 204) {
-    return undefined as T;
-  }
-  return (await res.json()) as T;
-}
-
-export async function fetchTasks(sort: TaskSort = 'ID'): Promise<Task[]> {
-  const res = await fetch(`/api/tasks?sort=${sort}`);
+// categoryId を指定するとそのカテゴリのタスクだけを取得する(null = すべて)
+export async function fetchTasks(
+  sort: TaskSort = 'ID',
+  categoryId: number | null = null,
+): Promise<Task[]> {
+  const query = categoryId === null ? `sort=${sort}` : `sort=${sort}&categoryId=${categoryId}`;
+  const res = await fetch(`/api/tasks?${query}`);
   return handleResponse<Task[]>(res);
 }
 
